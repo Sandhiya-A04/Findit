@@ -1,0 +1,685 @@
+
+{% extends "base.html" %}
+
+{% block title %}
+Report an Item - FindIt
+{% endblock %}
+
+
+{% block head_extra %}
+
+<link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+>
+
+{% endblock %}
+
+
+{% block content %}
+
+<div class="form-wrap">
+
+    <p class="eyebrow">
+        ADD A COMMUNITY REPORT
+    </p>
+
+    <h1>Report an item</h1>
+
+    <p class="muted">
+        Share clear details so the owner or finder can identify the item.
+    </p>
+
+
+    <form
+        class="report-form"
+        method="post"
+        enctype="multipart/form-data"
+        id="report-form"
+    >
+
+
+        <!-- REPORT TYPE -->
+
+        <label>Report type *</label>
+
+        <div class="radio-row">
+
+            <label class="radio-card">
+
+                <input
+                    type="radio"
+                    name="item_type"
+                    value="Lost"
+                    checked
+                >
+
+                I lost an item
+
+            </label>
+
+
+            <label class="radio-card">
+
+                <input
+                    type="radio"
+                    name="item_type"
+                    value="Found"
+                >
+
+                I found an item
+
+            </label>
+
+        </div>
+
+
+        <!-- ITEM DETAILS -->
+
+        <div class="two-col">
+
+            <div>
+
+                <label>Item name *</label>
+
+                <input
+                    name="item_name"
+                    required
+                    placeholder="e.g. Blue water bottle"
+                >
+
+            </div>
+
+
+            <div>
+
+                <label>Category *</label>
+
+                <select name="category" required>
+
+                    <option value="">
+                        Choose category
+                    </option>
+
+                    {% for c in [
+                        'Electronics',
+                        'ID / Cards',
+                        'Bags',
+                        'Keys',
+                        'Books',
+                        'Clothing',
+                        'Other'
+                    ] %}
+
+                        <option>{{ c }}</option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <div>
+
+                <label>Place / landmark (optional)</label>
+
+                <input
+                    id="location"
+                    name="location"
+                    placeholder="e.g. College library, Block A"
+                >
+
+                <p class="field-help">
+                    You can type a landmark or select a pin on the map below.
+                </p>
+
+            </div>
+
+
+            <div>
+
+                <label>Date lost / found *</label>
+
+                <input
+                    type="date"
+                    name="item_date"
+                    required
+                >
+
+            </div>
+
+        </div>
+
+
+        <!-- INTERACTIVE MAP -->
+
+        <section class="map-section">
+
+            <div class="map-heading">
+
+                <div>
+
+                    <label>
+                        Pin the location on the map
+                    </label>
+
+                    <p class="field-help">
+                        Click the map, drag the pin, or use your current location.
+                    </p>
+
+                </div>
+
+
+                <div class="map-actions">
+
+                    <button
+                        class="button button-map"
+                        type="button"
+                        id="use-current-location"
+                    >
+                        Use my current location
+                    </button>
+
+
+                    <button
+                        class="button button-map button-map-light"
+                        type="button"
+                        id="clear-location-pin"
+                    >
+                        Clear pin
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- MAP CONTAINER -->
+
+            <div
+                id="location-map"
+                class="location-map"
+                role="application"
+                aria-label="Interactive map. Click to place a location pin."
+            ></div>
+
+
+            <!-- GPS COORDINATES -->
+
+            <input
+                type="hidden"
+                name="latitude"
+                id="latitude"
+            >
+
+            <input
+                type="hidden"
+                name="longitude"
+                id="longitude"
+            >
+
+
+            <p
+                id="pin-status"
+                class="map-status"
+                aria-live="polite"
+            >
+                No map pin selected yet.
+            </p>
+
+        </section>
+
+
+        <!-- DESCRIPTION -->
+
+        <label>Description</label>
+
+        <textarea
+            name="description"
+            rows="4"
+            placeholder="Colour, brand, identifying marks..."
+        ></textarea>
+
+
+        <!-- IMAGE UPLOAD -->
+
+        <label>
+            Upload photo (optional, max 5 MB)
+        </label>
+
+        <input
+            type="file"
+            name="image"
+            accept=".png,.jpg,.jpeg,.webp"
+        >
+
+
+        <hr>
+
+        <h3>Contact details</h3>
+
+
+        <div class="two-col">
+
+            <div>
+
+                <label>Your name *</label>
+
+                <input
+                    name="contact_name"
+                    required
+                    placeholder="Name"
+                >
+
+            </div>
+
+
+            <div>
+
+                <label>Phone or email *</label>
+
+                <input
+                    name="contact_info"
+                    required
+                    placeholder="Contact information"
+                >
+
+            </div>
+
+        </div>
+
+
+        <p class="notice">
+            Demo privacy note: contact details are visible on the
+            item detail page. Use test details during your presentation.
+        </p>
+
+
+        <button
+            class="button full"
+            type="submit"
+        >
+            Submit report
+        </button>
+
+    </form>
+
+</div>
+
+{% endblock %}
+
+
+
+{% block scripts %}
+
+<script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+></script>
+
+
+<script>
+
+(function () {
+
+    const mapElement = document.getElementById(
+        'location-map'
+    );
+
+
+    if (!mapElement || typeof L === 'undefined') {
+
+        const status = document.getElementById(
+            'pin-status'
+        );
+
+        if (status) {
+
+            status.textContent =
+                'Map could not load. You can still enter a place or landmark.';
+
+        }
+
+        return;
+
+    }
+
+
+    // Initial map view of Chennai.
+    // This does NOT select or save the user's location automatically.
+
+    const map = L.map('location-map').setView(
+        [13.0827, 80.2707],
+        11
+    );
+
+
+    // OpenStreetMap tiles.
+
+    L.tileLayer(
+        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+            maxZoom: 19,
+
+            attribution:
+                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+
+        }
+    ).addTo(map);
+
+
+    const latitudeInput = document.getElementById(
+        'latitude'
+    );
+
+    const longitudeInput = document.getElementById(
+        'longitude'
+    );
+
+    const locationInput = document.getElementById(
+        'location'
+    );
+
+    const status = document.getElementById(
+        'pin-status'
+    );
+
+    const currentButton = document.getElementById(
+        'use-current-location'
+    );
+
+    const clearButton = document.getElementById(
+        'clear-location-pin'
+    );
+
+
+    let marker = null;
+
+
+    // CREATE OR UPDATE LOCATION PIN.
+
+    function updatePin(lat, lng, zoomToPin) {
+
+        const latitude = Number(lat);
+
+        const longitude = Number(lng);
+
+
+        if (
+            !Number.isFinite(latitude)
+            || !Number.isFinite(longitude)
+        ) {
+
+            return;
+
+        }
+
+
+        // Save GPS values in hidden form inputs.
+
+        latitudeInput.value = latitude.toFixed(6);
+
+        longitudeInput.value = longitude.toFixed(6);
+
+
+        // Create draggable marker if it does not exist.
+
+        if (!marker) {
+
+            marker = L.marker(
+                [latitude, longitude],
+                {
+                    draggable: true
+                }
+            ).addTo(map);
+
+
+            // Update coordinates when marker is dragged.
+
+            marker.on('dragend', function (event) {
+
+                const point = event.target.getLatLng();
+
+                updatePin(
+                    point.lat,
+                    point.lng,
+                    false
+                );
+
+            });
+
+        } else {
+
+            marker.setLatLng([
+                latitude,
+                longitude
+            ]);
+
+        }
+
+
+        // Zoom to selected location.
+
+        if (zoomToPin) {
+
+            map.setView(
+                [latitude, longitude],
+                16
+            );
+
+        }
+
+
+        marker
+            .bindPopup('Selected location')
+            .openPopup();
+
+
+        status.textContent =
+            'Pinned location: '
+            + latitude.toFixed(6)
+            + ', '
+            + longitude.toFixed(6);
+
+
+        // Automatically populate location name if empty
+        // or if it contained an earlier map-pin coordinate.
+
+        if (
+            !locationInput.value.trim()
+            || locationInput.value.startsWith('Map pin:')
+        ) {
+
+            locationInput.value =
+                'Map pin: '
+                + latitude.toFixed(6)
+                + ', '
+                + longitude.toFixed(6);
+
+        }
+
+    }
+
+
+    // USER CLICKS MAP TO PLACE PIN.
+
+    map.on('click', function (event) {
+
+        updatePin(
+            event.latlng.lat,
+            event.latlng.lng,
+            false
+        );
+
+    });
+
+
+    // USE DEVICE'S CURRENT GPS LOCATION.
+
+    currentButton.addEventListener(
+        'click',
+        function () {
+
+            if (!navigator.geolocation) {
+
+                status.textContent =
+                    'This browser does not support location detection. Click the map to pin a place.';
+
+                return;
+
+            }
+
+
+            status.textContent =
+                'Requesting permission to access your current location...';
+
+
+            navigator.geolocation.getCurrentPosition(
+
+                function (position) {
+
+                    updatePin(
+                        position.coords.latitude,
+                        position.coords.longitude,
+                        true
+                    );
+
+                    status.textContent +=
+                        ' (Current device location)';
+
+                },
+
+
+                function (error) {
+
+                    let message =
+                        'Could not get your current location. Click the map to place a pin.';
+
+
+                    if (
+                        error.code === error.PERMISSION_DENIED
+                    ) {
+
+                        message =
+                            'Location permission was denied. Allow location access in your browser, or click the map to place a pin.';
+
+                    } else if (
+                        error.code === error.TIMEOUT
+                    ) {
+
+                        message =
+                            'Location request timed out. Try again or click the map to place a pin.';
+
+                    }
+
+
+                    status.textContent = message;
+
+                },
+
+
+                {
+                    enableHighAccuracy: true,
+                    timeout: 12000,
+                    maximumAge: 30000
+                }
+
+            );
+
+        }
+    );
+
+
+    // CLEAR SELECTED LOCATION PIN.
+
+    clearButton.addEventListener(
+        'click',
+        function () {
+
+            if (marker) {
+
+                map.removeLayer(marker);
+
+                marker = null;
+
+            }
+
+
+            latitudeInput.value = '';
+
+            longitudeInput.value = '';
+
+
+            if (
+                locationInput.value.startsWith('Map pin:')
+            ) {
+
+                locationInput.value = '';
+
+            }
+
+
+            status.textContent =
+                'Map pin cleared. Select a new pin or enter a place/landmark.';
+
+        }
+    );
+
+
+    // VALIDATE LOCATION BEFORE FORM SUBMISSION.
+
+    document
+        .getElementById('report-form')
+        .addEventListener(
+            'submit',
+            function (event) {
+
+                const hasTextLocation =
+                    locationInput.value.trim().length > 0;
+
+
+                const hasMapPin =
+                    latitudeInput.value.trim() !== ''
+                    && longitudeInput.value.trim() !== '';
+
+
+                if (!hasTextLocation && !hasMapPin) {
+
+                    event.preventDefault();
+
+                    status.textContent =
+                        'Please enter a place/landmark or select a location pin on the map.';
+
+                    status.classList.add(
+                        'map-status-error'
+                    );
+
+                    mapElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+
+                }
+
+            }
+        );
+
+
+    // Refresh map size after the page loads.
+
+    setTimeout(
+        function () {
+            map.invalidateSize();
+        },
+        150
+    );
+
+})();
+
+</script>
+
+{% endblock %}

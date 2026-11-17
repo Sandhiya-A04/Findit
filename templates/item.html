@@ -1,0 +1,326 @@
+
+{% extends "base.html" %}
+
+{% block title %}
+{{ item.item_name }} - FindIt
+{% endblock %}
+
+
+{% block head_extra %}
+
+{% if item.latitude is not none and item.longitude is not none %}
+
+<link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+>
+
+{% endif %}
+
+{% endblock %}
+
+
+{% block content %}
+
+<a class="back-link" href="{{ url_for('index') }}">
+    ← Back to reports
+</a>
+
+
+<!-- ITEM DETAILS -->
+
+<div class="detail-layout">
+
+    <div>
+
+        {% if item.image_filename %}
+
+            <img
+                class="detail-image"
+                src="{{ url_for('uploaded_file', filename=item.image_filename) }}"
+                alt="Item photo"
+            >
+
+        {% else %}
+
+            <div class="detail-placeholder">
+                📦
+            </div>
+
+        {% endif %}
+
+    </div>
+
+
+    <section class="detail-card">
+
+        <div class="card-top">
+
+            <span class="pill {{ item.item_type|lower }}">
+                {{ item.item_type }}
+            </span>
+
+            <span class="status {{ item.status|lower }}">
+                {{ item.status }}
+            </span>
+
+        </div>
+
+
+        <h1>{{ item.item_name }}</h1>
+
+        <p class="muted">
+            {{ item.category }} · {{ item.location }}
+        </p>
+
+        <p>
+            {{ item.description or 'No description provided.' }}
+        </p>
+
+
+        <!-- ITEM INFORMATION -->
+
+        <dl class="details">
+
+            <dt>Date lost / found</dt>
+            <dd>{{ item.item_date }}</dd>
+
+            <dt>Reported by</dt>
+            <dd>{{ item.contact_name }}</dd>
+
+            <dt>Contact</dt>
+            <dd>{{ item.contact_info }}</dd>
+
+
+            {% if item.latitude is not none and item.longitude is not none %}
+
+                <dt>Map coordinates</dt>
+
+                <dd>
+                    {{ '%.6f'|format(item.latitude) }},
+                    {{ '%.6f'|format(item.longitude) }}
+                </dd>
+
+            {% endif %}
+
+        </dl>
+
+
+        <!-- MARK AS RETURNED -->
+
+        {% if item.status == 'Open' %}
+
+        <form
+            method="post"
+            action="{{ url_for('mark_returned', item_id=item.id) }}"
+        >
+
+            <button class="button" type="submit">
+                Mark as returned
+            </button>
+
+        </form>
+
+        {% endif %}
+
+
+        <!-- DELETE RECORD -->
+
+        <form
+            method="post"
+            action="{{ url_for('delete_item', item_id=item.id) }}"
+            onsubmit="return confirm('Delete this demo record?')"
+        >
+
+            <button
+                class="button button-danger"
+                type="submit"
+            >
+                Delete demo record
+            </button>
+
+        </form>
+
+    </section>
+
+</div>
+
+
+
+<!-- SAVED LOCATION MAP -->
+
+{% if item.latitude is not none and item.longitude is not none %}
+
+<section class="saved-location-section">
+
+    <p class="eyebrow">
+        PINNED LOCATION
+    </p>
+
+    <h2>
+        Where the item was lost / found
+    </h2>
+
+    <div
+        id="saved-location-map"
+        class="saved-location-map"
+        aria-label="Map showing the saved item location"
+    ></div>
+
+    <p class="field-help">
+        Map pin selected by the person who submitted this report.
+    </p>
+
+</section>
+
+{% endif %}
+
+
+
+<!-- POSSIBLE MATCHES -->
+
+<section class="matches">
+
+    <p class="eyebrow">
+        AUTOMATED SUGGESTIONS
+    </p>
+
+    <h2>Possible matches</h2>
+
+    <p class="muted small">
+        The demo compares category, shared keywords and location.
+        A suggestion is not proof of ownership.
+    </p>
+
+
+    {% if matches %}
+
+    <div class="item-grid">
+
+        {% for match in matches %}
+
+        <article class="item-card match-card">
+
+            <div class="card-body">
+
+                <span class="pill {{ match.item.item_type|lower }}">
+                    {{ match.item.item_type }}
+                </span>
+
+                <h3>
+                    {{ match.item.item_name }}
+                </h3>
+
+                <p class="muted small">
+                    {{ match.item.category }}
+                    ·
+                    {{ match.item.location }}
+                </p>
+
+                <strong>
+                    {{ match.score }}% demo match score
+                </strong>
+
+                <p class="small muted">
+                    Matched by: {{ match.reasons }}
+                </p>
+
+                <a
+                    class="text-link"
+                    href="{{ url_for('item_detail', item_id=match.item.id) }}"
+                >
+                    View report →
+                </a>
+
+            </div>
+
+        </article>
+
+        {% endfor %}
+
+    </div>
+
+
+    {% else %}
+
+    <div class="empty compact">
+
+        <p>
+            No possible match found yet.
+            Check again when another report is added.
+        </p>
+
+    </div>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}
+
+
+
+{% block scripts %}
+
+{% if item.latitude is not none and item.longitude is not none %}
+
+<script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+></script>
+
+
+<script>
+
+(function () {
+
+    if (typeof L === 'undefined') {
+        return;
+    }
+
+
+    const lat = {{ item.latitude|tojson }};
+
+    const lng = {{ item.longitude|tojson }};
+
+
+    // Initialize map using saved coordinates.
+
+    const map = L.map(
+        'saved-location-map'
+    ).setView(
+        [lat, lng],
+        16
+    );
+
+
+    // OpenStreetMap tiles.
+
+    L.tileLayer(
+        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+            maxZoom: 19,
+
+            attribution:
+                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+        }
+    ).addTo(map);
+
+
+    // Display saved location marker.
+
+    L.marker([lat, lng])
+        .addTo(map)
+        .bindPopup({{ item.location|tojson }})
+        .openPopup();
+
+})();
+
+</script>
+
+{% endif %}
+
+{% endblock %}
